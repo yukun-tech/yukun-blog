@@ -4,28 +4,193 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Yukun's Blog</title>
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <style>
-        body { font-family: sans-serif; text-align: center; background-color: #f0f2f5; }
-        .calendar-card { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: inline-block; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; background-color: #f0f2f5; }
+        .App { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
-        // 把你之前 App.js 里的代码粘贴在这里
-        function App() {
-            return (
-                <div className="App">
-                    <h1 style={{background: 'linear-gradient(to right, red, orange, yellow, green, blue, indigo, violet)', WebkitBackgroundClip: 'text', color: 'transparent'}}>
-                        欢迎来到 Yukun 的博客
-                    </h1>
-                    <div className="calendar-card">
-                        <p>你的日历和天气功能正在加载...</p>
+        const { useState, useEffect } = React;
+
+        // --- 子组件：日历视图 ---
+        function CalendarView({ selectedDate, onDateClick }) {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = now.getMonth();
+            const todayStr = new Date().toLocaleDateString();
+
+            const firstDayOfMonth = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            const days = [];
+            for (let i = 0; i < firstDayOfMonth; i++) {
+                days.push(<div key={`e-${i}`} />);
+            }
+
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dateStr = new Date(year, month, d).toLocaleDateString();
+                const isToday = dateStr === todayStr;
+                const isSelected = dateStr === selectedDate;
+
+                days.push(
+                    <div 
+                        key={d} 
+                        onClick={() => onDateClick(dateStr)}
+                        style={{
+                            padding: "4px 0",
+                            textAlign: "center",
+                            borderRadius: "4px",
+                            cursor: "pointer",
+                            backgroundColor: isSelected ? "#45B7D1" : (isToday ? "#4caf50" : "transparent"),
+                            color: (isSelected || isToday) ? "white" : "#333",
+                            fontSize: "0.7rem",
+                            border: isSelected ? "none" : "1px solid #f9f9f9",
+                            transition: "0.2s"
+                        }}
+                    >
+                        {d}
                     </div>
+                );
+            }
+
+            return (
+                <div style={{ padding: "10px", backgroundColor: "#fdfdfd", borderRadius: "10px", border: "1px solid #eee", width: "180px" }}>
+                    <div style={{ fontSize: "0.8rem", fontWeight: "bold", textAlign: "center", marginBottom: "8px", color: "#666" }}>
+                        {year}年 {month + 1}月
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "2px" }}>
+                        {["日", "一", "二", "三", "四", "五", "六"].map(w => (
+                            <div key={w} style={{ textAlign: "center", fontSize: "0.6rem", color: "#999", marginBottom: "4px" }}>{w}</div>
+                        ))}
+                        {days}
+                    </div>
+                </div>
+            );
+        }
+
+        // --- 主组件 ---
+        function App() {
+            const [date, setDate] = useState(new Date().toLocaleDateString());
+            const [selectedDate, setSelectedDate] = useState(new Date().toLocaleDateString());
+            const [weather, setWeather] = useState("正在加载天气...");
+            const [taskInput, setTaskInput] = useState("");
+            
+            const [allTasks, setAllTasks] = useState(() => {
+                const saved = localStorage.getItem("yukun_blog_tasks");
+                return saved ? JSON.parse(saved) : {
+                    [new Date().toLocaleDateString()]: [
+                        { id: 1, text: "学习 React 基础", completed: false },
+                    ]
+                };
+            });
+
+            useEffect(() => {
+                localStorage.setItem("yukun_blog_tasks", JSON.stringify(allTasks));
+            }, [allTasks]);
+
+            const currentTasks = allTasks[selectedDate] || [];
+
+            useEffect(() => {
+                const timer = setInterval(() => setDate(new Date().toLocaleDateString()), 60000);
+                const fetchWeather = async () => {
+                    try {
+                        const url = `https://api.open-meteo.com/v1/forecast?latitude=37.35&longitude=-121.95&current_weather=true&temperature_unit=celsius`;
+                        const response = await fetch(url);
+                        const data = await response.json();
+                        const tempC = data.current_weather.temperature;
+                        setWeather(`☀️ ${tempC}°C / ${((tempC * 9) / 5 + 32).toFixed(1)}°F`);
+                    } catch (error) { setWeather("⚠️ 获取失败"); }
+                };
+                fetchWeather();
+                return () => clearInterval(timer);
+            }, []);
+
+            const addTask = () => {
+                if (!taskInput.trim()) return;
+                const newTask = { id: Date.now(), text: taskInput, completed: false };
+                setAllTasks({
+                    ...allTasks,
+                    [selectedDate]: [...currentTasks, newTask]
+                });
+                setTaskInput("");
+            };
+
+            const toggleTask = (id) => {
+                setAllTasks({
+                    ...allTasks,
+                    [selectedDate]: currentTasks.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t))
+                });
+            };
+
+            const renderRainbowText = (text) => {
+                const colors = ["#4ECDC4", "#45B7D1", "#98D8C8", "#F7DC6F", "#BB8FCE"];
+                return text.split("").map((char, index) => (
+                    <span key={index} style={{ color: colors[index % colors.length] }}>{char}</span>
+                ));
+            };
+
+            return (
+                <div style={{ maxWidth: "650px", margin: "40px auto", padding: "30px", borderRadius: "20px", boxShadow: "0 10px 30px rgba(0,0,0,0.1)", backgroundColor: "white" }}>
+                    <div style={{ backgroundColor: "#e8f5e9", padding: "20px", borderRadius: "15px", textAlign: "center", marginBottom: "30px" }}>
+                        <h1 style={{ fontSize: "2.5rem", margin: 0 }}>
+                            {renderRainbowText("Welcome Yukun's Blog")}
+                        </h1>
+                    </div>
+
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: "20px" }}>
+                        <div style={{ flex: 1, minWidth: "300px" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "10px", fontSize: "0.9rem", color: "#666" }}>
+                                <span>今天: {date}</span>
+                                <span> {weather}</span>
+                            </div>
+                            
+                            <div style={{ marginBottom: "10px", padding: "5px 10px", backgroundColor: "#f0f7ff", borderRadius: "5px", fontSize: "0.85rem", color: "#007bff", borderLeft: "4px solid #45B7D1" }}>
+                                📅 正在查看: <strong>{selectedDate === date ? "今天" : selectedDate}</strong> 的任务
+                            </div>
+
+                            <div style={{ borderTop: "1px solid #eee", paddingTop: "15px" }}>
+                                <div style={{ marginBottom: "20px", display: "flex", gap: "10px" }}>
+                                    <input 
+                                        value={taskInput} 
+                                        onChange={(e) => setTaskInput(e.target.value)} 
+                                        style={{ padding: "8px", borderRadius: "5px", border: "1px solid #ddd", flex: 1 }} 
+                                        placeholder={`为 ${selectedDate} 添加任务...`} 
+                                    />
+                                    <button onClick={addTask} style={{ padding: "8px 15px", backgroundColor: "#4caf50", color: "white", border: "none", borderRadius: "5px", cursor: "pointer" }}>添加</button>
+                                </div>
+
+                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", minHeight: "150px" }}>
+                                    <div>
+                                        <h4 style={{ color: "#f44336", margin: "0 0 10px 0" }}>未完成</h4>
+                                        <ul style={{ paddingLeft: "20px", textAlign: "left" }}>
+                                            {currentTasks.filter((t) => !t.completed).map((t) => (
+                                                <li key={t.id} onClick={() => toggleTask(t.id)} style={{ cursor: "pointer", marginBottom: "8px" }}>{t.text}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                    <div>
+                                        <h4 style={{ color: "#9e9e9e", margin: "0 0 10px 0" }}>已完成</h4>
+                                        <ul style={{ paddingLeft: "20px", color: "gray", textDecoration: "line-through", textAlign: "left" }}>
+                                            {currentTasks.filter((t) => t.completed).map((t) => (
+                                                <li key={t.id} onClick={() => toggleTask(t.id)} style={{ cursor: "pointer", marginBottom: "8px" }}>{t.text}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <CalendarView selectedDate={selectedDate} onDateClick={setSelectedDate} />
+                    </div>
+
+                    <h2 style={{ textAlign: "center", color: "#4caf50", marginTop: "40px", fontSize: "2rem" }}>
+                        Have a nice day!
+                    </h2>
                 </div>
             );
         }
