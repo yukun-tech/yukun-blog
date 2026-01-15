@@ -8,12 +8,12 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; background-color: #f0f2f5; }
-        .App { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background-color: #f0f2f5; display: flex; justify-content: center; }
+        #root { width: 100%; max-width: 700px; padding: 20px; }
     </style>
 </head>
 <body>
-    <div id="root"></div>
+    <div id="root">内容加载中，请稍候...</div>
 
     <script type="text/babel">
         const { useState, useEffect } = React;
@@ -39,34 +39,26 @@
                 const isSelected = dateStr === selectedDate;
 
                 days.push(
-                    <div 
-                        key={d} 
-                        onClick={() => onDateClick(dateStr)}
+                    <div key={d} onClick={() => onDateClick(dateStr)}
                         style={{
-                            padding: "4px 0",
-                            textAlign: "center",
-                            borderRadius: "4px",
-                            cursor: "pointer",
+                            padding: "6px 0", textAlign: "center", borderRadius: "6px", cursor: "pointer",
                             backgroundColor: isSelected ? "#45B7D1" : (isToday ? "#4caf50" : "transparent"),
                             color: (isSelected || isToday) ? "white" : "#333",
-                            fontSize: "0.7rem",
-                            border: isSelected ? "none" : "1px solid #f9f9f9",
-                            transition: "0.2s"
-                        }}
-                    >
+                            fontSize: "0.75rem", border: isSelected ? "none" : "1px solid #f0f0f0", transition: "0.2s"
+                        }}>
                         {d}
                     </div>
                 );
             }
 
             return (
-                <div style={{ padding: "10px", backgroundColor: "#fdfdfd", borderRadius: "10px", border: "1px solid #eee", width: "180px" }}>
-                    <div style={{ fontSize: "0.8rem", fontWeight: "bold", textAlign: "center", marginBottom: "8px", color: "#666" }}>
+                <div style={{ padding: "15px", backgroundColor: "#fff", borderRadius: "12px", border: "1px solid #eee", width: "200px", boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
+                    <div style={{ fontSize: "0.9rem", fontWeight: "bold", textAlign: "center", marginBottom: "10px", color: "#444" }}>
                         {year}年 {month + 1}月
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "2px" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "4px" }}>
                         {["日", "一", "二", "三", "四", "五", "六"].map(w => (
-                            <div key={w} style={{ textAlign: "center", fontSize: "0.6rem", color: "#999", marginBottom: "4px" }}>{w}</div>
+                            <div key={w} style={{ textAlign: "center", fontSize: "0.7rem", color: "#999" }}>{w}</div>
                         ))}
                         {days}
                     </div>
@@ -74,129 +66,88 @@
             );
         }
 
-        // --- 主组件 ---
         function App() {
             const [date, setDate] = useState(new Date().toLocaleDateString());
             const [selectedDate, setSelectedDate] = useState(new Date().toLocaleDateString());
-            const [weather, setWeather] = useState("正在加载天气...");
+            const [weather, setWeather] = useState("☀️ 正在获取天气...");
             const [taskInput, setTaskInput] = useState("");
-            
             const [allTasks, setAllTasks] = useState(() => {
                 const saved = localStorage.getItem("yukun_blog_tasks");
-                return saved ? JSON.parse(saved) : {
-                    [new Date().toLocaleDateString()]: [
-                        { id: 1, text: "学习 React 基础", completed: false },
-                    ]
-                };
+                return saved ? JSON.parse(saved) : {};
             });
 
             useEffect(() => {
                 localStorage.setItem("yukun_blog_tasks", JSON.stringify(allTasks));
             }, [allTasks]);
 
-            const currentTasks = allTasks[selectedDate] || [];
-
             useEffect(() => {
-                const timer = setInterval(() => setDate(new Date().toLocaleDateString()), 60000);
                 const fetchWeather = async () => {
                     try {
-                        const url = `https://api.open-meteo.com/v1/forecast?latitude=37.35&longitude=-121.95&current_weather=true&temperature_unit=celsius`;
-                        const response = await fetch(url);
-                        const data = await response.json();
+                        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=37.35&longitude=-121.95&current_weather=true&temperature_unit=celsius`);
+                        const data = await res.json();
                         const tempC = data.current_weather.temperature;
                         setWeather(`☀️ ${tempC}°C / ${((tempC * 9) / 5 + 32).toFixed(1)}°F`);
-                    } catch (error) { setWeather("⚠️ 获取失败"); }
+                    } catch (e) { setWeather("⚠️ 获取失败"); }
                 };
                 fetchWeather();
-                return () => clearInterval(timer);
             }, []);
+
+            const currentTasks = allTasks[selectedDate] || [];
 
             const addTask = () => {
                 if (!taskInput.trim()) return;
                 const newTask = { id: Date.now(), text: taskInput, completed: false };
-                setAllTasks({
-                    ...allTasks,
-                    [selectedDate]: [...currentTasks, newTask]
-                });
+                setAllTasks({ ...allTasks, [selectedDate]: [...currentTasks, newTask] });
                 setTaskInput("");
             };
 
             const toggleTask = (id) => {
                 setAllTasks({
                     ...allTasks,
-                    [selectedDate]: currentTasks.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t))
+                    [selectedDate]: currentTasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t)
                 });
             };
 
-            const renderRainbowText = (text) => {
+            const rainbowText = (text) => {
                 const colors = ["#4ECDC4", "#45B7D1", "#98D8C8", "#F7DC6F", "#BB8FCE"];
-                return text.split("").map((char, index) => (
-                    <span key={index} style={{ color: colors[index % colors.length] }}>{char}</span>
-                ));
+                return text.split("").map((c, i) => <span key={i} style={{ color: colors[i % colors.length] }}>{c}</span>);
             };
 
             return (
-                <div style={{ maxWidth: "650px", margin: "40px auto", padding: "30px", borderRadius: "20px", boxShadow: "0 10px 30px rgba(0,0,0,0.1)", backgroundColor: "white" }}>
+                <div style={{ background: "white", padding: "30px", borderRadius: "20px", boxShadow: "0 10px 30px rgba(0,0,0,0.08)", marginTop: "20px" }}>
                     <div style={{ backgroundColor: "#e8f5e9", padding: "20px", borderRadius: "15px", textAlign: "center", marginBottom: "30px" }}>
-                        <h1 style={{ fontSize: "2.5rem", margin: 0 }}>
-                            {renderRainbowText("Welcome Yukun's Blog")}
-                        </h1>
+                        <h1 style={{ fontSize: "2.2rem", margin: 0 }}>{rainbowText("Welcome Yukun's Blog")}</h1>
                     </div>
 
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: "20px" }}>
-                        <div style={{ flex: 1, minWidth: "300px" }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "10px", fontSize: "0.9rem", color: "#666" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: "20px", flexWrap: "wrap" }}>
+                        <div style={{ flex: 1, minWidth: "280px" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", color: "#666", marginBottom: "15px" }}>
                                 <span>今天: {date}</span>
-                                <span> {weather}</span>
+                                <span>{weather}</span>
                             </div>
-                            
-                            <div style={{ marginBottom: "10px", padding: "5px 10px", backgroundColor: "#f0f7ff", borderRadius: "5px", fontSize: "0.85rem", color: "#007bff", borderLeft: "4px solid #45B7D1" }}>
-                                📅 正在查看: <strong>{selectedDate === date ? "今天" : selectedDate}</strong> 的任务
+                            <div style={{ marginBottom: "15px", padding: "8px", backgroundColor: "#f0f7ff", borderRadius: "8px", fontSize: "0.85rem", color: "#007bff", borderLeft: "4px solid #45B7D1" }}>
+                                📅 查看: <strong>{selectedDate}</strong>
                             </div>
-
-                            <div style={{ borderTop: "1px solid #eee", paddingTop: "15px" }}>
-                                <div style={{ marginBottom: "20px", display: "flex", gap: "10px" }}>
-                                    <input 
-                                        value={taskInput} 
-                                        onChange={(e) => setTaskInput(e.target.value)} 
-                                        style={{ padding: "8px", borderRadius: "5px", border: "1px solid #ddd", flex: 1 }} 
-                                        placeholder={`为 ${selectedDate} 添加任务...`} 
-                                    />
-                                    <button onClick={addTask} style={{ padding: "8px 15px", backgroundColor: "#4caf50", color: "white", border: "none", borderRadius: "5px", cursor: "pointer" }}>添加</button>
+                            <div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
+                                <input value={taskInput} onChange={e => setTaskInput(e.target.value)} style={{ flex: 1, padding: "8px", borderRadius: "6px", border: "1px solid #ddd" }} placeholder="输入任务..." />
+                                <button onClick={addTask} style={{ padding: "8px 15px", backgroundColor: "#4caf50", color: "white", border: "none", borderRadius: "6px", cursor: "pointer" }}>添加</button>
+                            </div>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "15px", textAlign: "left" }}>
+                                <div><h5 style={{ color: "#f44336", margin: "0 0 10px 0" }}>未完成</h5>
+                                    {currentTasks.filter(t => !t.completed).map(t => <div key={t.id} onClick={() => toggleTask(t.id)} style={{ cursor: "pointer", fontSize: "0.9rem", marginBottom: "5px" }}>• {t.text}</div>)}
                                 </div>
-
-                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", minHeight: "150px" }}>
-                                    <div>
-                                        <h4 style={{ color: "#f44336", margin: "0 0 10px 0" }}>未完成</h4>
-                                        <ul style={{ paddingLeft: "20px", textAlign: "left" }}>
-                                            {currentTasks.filter((t) => !t.completed).map((t) => (
-                                                <li key={t.id} onClick={() => toggleTask(t.id)} style={{ cursor: "pointer", marginBottom: "8px" }}>{t.text}</li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                    <div>
-                                        <h4 style={{ color: "#9e9e9e", margin: "0 0 10px 0" }}>已完成</h4>
-                                        <ul style={{ paddingLeft: "20px", color: "gray", textDecoration: "line-through", textAlign: "left" }}>
-                                            {currentTasks.filter((t) => t.completed).map((t) => (
-                                                <li key={t.id} onClick={() => toggleTask(t.id)} style={{ cursor: "pointer", marginBottom: "8px" }}>{t.text}</li>
-                                            ))}
-                                        </ul>
-                                    </div>
+                                <div><h5 style={{ color: "#9e9e9e", margin: "0 0 10px 0" }}>已完成</h5>
+                                    {currentTasks.filter(t => t.completed).map(t => <div key={t.id} onClick={() => toggleTask(t.id)} style={{ cursor: "pointer", fontSize: "0.9rem", color: "#bbb", textDecoration: "line-through", marginBottom: "5px" }}>• {t.text}</div>)}
                                 </div>
                             </div>
                         </div>
                         <CalendarView selectedDate={selectedDate} onDateClick={setSelectedDate} />
                     </div>
-
-                    <h2 style={{ textAlign: "center", color: "#4caf50", marginTop: "40px", fontSize: "2rem" }}>
-                        Have a nice day!
-                    </h2>
                 </div>
             );
         }
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
     </script>
 </body>
 </html>
